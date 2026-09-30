@@ -1,0 +1,104 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    background-color: #FFFFFF;
+    color: #111111;
+    font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    line-height: 1.6;
+    letter-spacing: -0.011em;
+  }
+
+  h1, h2, h3 {
+    font-family: "Playfair Display", Georgia, serif;
+    letter-spacing: -0.02em;
+    color: #111111;
+  }
+}
+
+/* Scandinavian Editorial Borders */
+.border-hairline {
+  border-color: #D9D9D4;
+}
+
+.border-thin {
+  border-color: #111111;
+}
+
+.border-nordic-blue {
+  border-color: #1E4D6B;
+}
+
+/* Subtle architectural grid pattern */
+.bg-nordic-grid {
+  background-image: linear-gradient(to right, rgba(17, 17, 17, 0.04) 1px, transparent 1px),
+                    linear-gradient(to bottom, rgba(17, 17, 17, 0.04) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+/* Leaflet map minimalism */
+.leaflet-container {
+  font-family: "Inter", sans-serif !important;
+  background-color: #F5F5F2 !important;
+}
+
+.leaflet-control-zoom {
+  border: 1px solid #111111 !important;
+  border-radius: 2px !important;
+  box-shadow: none !important;
+  overflow: hidden;
+}
+
+.leaflet-control-zoom-in,
+.leaflet-control-zoom-out {
+  background-color: #FFFFFF !important;
+  color: #111111 !important;
+  border-bottom: 1px solid #D9D9D4 !important;
+  font-family: "Inter", sans-serif !important;
+  font-weight: 600 !important;
+  transition: all 0.15s ease !important;
+}
+
+.leaflet-control-zoom-in:hover,
+.leaflet-control-zoom-out:hover {
+  background-color: #111111 !important;
+  color: #FFFFFF !important;
+}
+
+.leaflet-popup-content-wrapper {
+  border-radius: 2px !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08) !important;
+  border: 1px solid #111111 !important;
+  padding: 0 !important;
+  overflow: hidden;
+}
+
+.leaflet-popup-content {
+  margin: 0 !important;
+  line-height: 1.4 !important;
+}
+
+.leaflet-popup-tip-container {
+  display: none;
+}
+
+/* Custom minimal scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #F5F5F2;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #D9D9D4;
+  border-radius: 2px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #666666;
+}
