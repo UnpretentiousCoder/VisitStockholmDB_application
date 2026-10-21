@@ -1,19 +1,17 @@
 import React, { useState, useMemo } from 'react';
-import { Search, Train, Star, ArrowRight, Plus, SlidersHorizontal, Check } from 'lucide-react';
-import { Attraction, AttractionCategory, District } from '../types';
-import { STOCKHOLM_ATTRACTIONS, STOCKHOLM_STOPS } from '../data/stockholmData';
+import { Search, Train, Star, ArrowRight, MapPin } from 'lucide-react';
+import { Attraction, District } from '../types';
+import { STOCKHOLM_ATTRACTIONS, STOCKHOLM_STOPS, getCategoryFallbackImage } from '../data/stockholmData';
 import { AttractionDetailModal } from './AttractionDetailModal';
 
 interface AttractionDirectoryProps {
-  onPlanRouteHere: (attractionId: string) => void;
-  onAddToItinerary: (attraction: Attraction) => void;
-  onSelectStop: (stopId: string) => void;
+  onShowOnMap?: (attractionId: string) => void;
+  onSelectStop?: (stopId: string) => void;
   externalSearchQuery?: string;
 }
 
 export const AttractionDirectory: React.FC<AttractionDirectoryProps> = ({
-  onPlanRouteHere,
-  onAddToItinerary,
+  onShowOnMap,
   onSelectStop,
   externalSearchQuery = '',
 }) => {
@@ -23,7 +21,6 @@ export const AttractionDirectory: React.FC<AttractionDirectoryProps> = ({
   const [onlyHighReliability, setOnlyHighReliability] = useState<boolean>(false);
   const [onlyShortWalk, setOnlyShortWalk] = useState<boolean>(false);
   const [activeAttraction, setActiveAttraction] = useState<Attraction | null>(null);
-  const [addedNotice, setAddedNotice] = useState<string | null>(null);
 
   const categories: { id: string; label: string }[] = [
     { id: 'all', label: 'All Destinations' },
@@ -81,23 +78,9 @@ export const AttractionDirectory: React.FC<AttractionDirectoryProps> = ({
     });
   }, [selectedCategory, selectedDistrict, onlyHighReliability, onlyShortWalk, searchQuery]);
 
-  const handleAddWithNotice = (attraction: Attraction) => {
-    onAddToItinerary(attraction);
-    setAddedNotice(attraction.name);
-    setTimeout(() => setAddedNotice(null), 2400);
-  };
-
   return (
     <section className="py-12 lg:py-16 max-w-[1360px] mx-auto px-4 sm:px-6 lg:px-8">
       
-      {/* Added Toast Notification */}
-      {addedNotice && (
-        <div className="fixed bottom-6 right-6 z-50 bg-[#111111] text-[#FFFFFF] border border-[#D9D9D4] px-4 py-3 flex items-center gap-3 text-xs font-mono shadow-md animate-in fade-in slide-in-from-bottom-2">
-          <Check className="w-4 h-4 text-[#315C45]" strokeWidth={2} />
-          <span>Added <strong>{addedNotice}</strong> to Itinerary</span>
-        </div>
-      )}
-
       {/* Section Header */}
       <div className="border-b border-[#111111] pb-6 mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
@@ -230,12 +213,15 @@ export const AttractionDirectory: React.FC<AttractionDirectoryProps> = ({
                 className="group border border-[#D9D9D4] hover:border-[#111111] bg-[#FFFFFF] flex flex-col justify-between transition-colors duration-200"
               >
                 <div>
-                  {/* Card Image */}
+                  {/* Card Image with Truthful Fallback */}
                   <div className="relative aspect-[16/10] overflow-hidden bg-[#111111] border-b border-[#D9D9D4]">
                     <img
                       src={attraction.image}
                       alt={attraction.name}
-                      className="w-full h-full object-cover grayscale-[30%] group-hover:grayscale-0 group-hover:scale-[1.02] transition-all duration-300"
+                      onError={(e) => {
+                        (e.currentTarget as HTMLImageElement).src = getCategoryFallbackImage(attraction.category);
+                      }}
+                      className="w-full h-full object-cover grayscale-[20%] group-hover:grayscale-0 group-hover:scale-[1.02] transition-all duration-300"
                     />
                     
                     {/* Category pill */}
@@ -299,11 +285,11 @@ export const AttractionDirectory: React.FC<AttractionDirectoryProps> = ({
                   </button>
 
                   <button
-                    onClick={() => handleAddWithNotice(attraction)}
+                    onClick={() => onShowOnMap ? onShowOnMap(attraction.id) : setActiveAttraction(attraction)}
                     className="py-2 px-3 text-xs font-mono uppercase tracking-wider bg-[#F5F5F2] hover:bg-[#E8F0F4] text-[#1E4D6B] border border-[#D9D9D4] hover:border-[#1E4D6B] transition-colors flex items-center justify-center gap-1"
                   >
-                    <Plus className="w-3 h-3" strokeWidth={1.5} />
-                    <span>Add Trip</span>
+                    <MapPin className="w-3 h-3" strokeWidth={1.5} />
+                    <span>Show on Map</span>
                   </button>
                 </div>
 
@@ -319,9 +305,8 @@ export const AttractionDirectory: React.FC<AttractionDirectoryProps> = ({
           attraction={activeAttraction}
           nearestStop={STOCKHOLM_STOPS.find(s => s.id === activeAttraction.nearestStopId)}
           onClose={() => setActiveAttraction(null)}
-          onPlanRouteHere={onPlanRouteHere}
-          onAddToItinerary={handleAddWithNotice}
           onSelectStop={onSelectStop}
+          onShowOnMap={onShowOnMap}
         />
       )}
 

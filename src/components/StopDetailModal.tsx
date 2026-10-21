@@ -7,14 +7,14 @@ import { getStatusBadgeConfig } from '../services/reliabilityService';
 interface StopDetailModalProps {
   stop: TransitStop | null;
   onClose: () => void;
-  onPlanFromHere: (stopId: string) => void;
-  onSelectAttraction: (attractionId: string) => void;
+  onShowOnMap?: (stopId: string) => void;
+  onSelectAttraction?: (attractionId: string) => void;
 }
 
 export const StopDetailModal: React.FC<StopDetailModalProps> = ({
   stop,
   onClose,
-  onPlanFromHere,
+  onShowOnMap,
   onSelectAttraction,
 }) => {
   if (!stop) return null;
@@ -139,7 +139,9 @@ export const StopDetailModal: React.FC<StopDetailModalProps> = ({
                     key={attraction.id}
                     onClick={() => {
                       onClose();
-                      onSelectAttraction(attraction.id);
+                      if (onSelectAttraction) {
+                        onSelectAttraction(attraction.id);
+                      }
                     }}
                     className="p-3 hover:bg-[#F5F5F2] cursor-pointer flex items-center justify-between transition-colors"
                   >
@@ -161,15 +163,23 @@ export const StopDetailModal: React.FC<StopDetailModalProps> = ({
           {/* Action Footer */}
           <div className="pt-4 border-t border-[#D9D9D4] flex justify-end gap-3">
             <button
-              onClick={() => {
-                onClose();
-                onPlanFromHere(stop.id);
-              }}
-              className="px-6 py-3 bg-[#111111] text-white hover:bg-[#1E4D6B] transition-colors text-xs font-mono uppercase tracking-wider flex items-center gap-2"
+              onClick={onClose}
+              className="px-5 py-2.5 border border-[#111111] text-[#111111] hover:bg-[#F5F5F2] transition-colors text-xs font-mono uppercase tracking-wider"
             >
-              <Train className="w-4 h-4" strokeWidth={1.5} />
-              <span>Plan Journey Starting From Here</span>
+              Close
             </button>
+            {onShowOnMap && (
+              <button
+                onClick={() => {
+                  onClose();
+                  onShowOnMap(stop.id);
+                }}
+                className="px-6 py-2.5 bg-[#111111] text-white hover:bg-[#1E4D6B] transition-colors text-xs font-mono uppercase tracking-wider flex items-center gap-2"
+              >
+                <Train className="w-4 h-4" strokeWidth={1.5} />
+                <span>Show Stop on Map</span>
+              </button>
+            )}
           </div>
 
         </div>

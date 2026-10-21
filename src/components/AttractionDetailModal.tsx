@@ -1,23 +1,22 @@
 import React from 'react';
-import { X, MapPin, Clock, Train, Star, Plus, Navigation, ExternalLink } from 'lucide-react';
+import { X, MapPin, Clock, Train, Star, ExternalLink, Map as MapIcon } from 'lucide-react';
 import { Attraction, TransitStop } from '../types';
+import { getCategoryFallbackImage } from '../data/stockholmData';
 
 interface AttractionDetailModalProps {
   attraction: Attraction | null;
   nearestStop?: TransitStop;
   onClose: () => void;
-  onPlanRouteHere: (attractionId: string) => void;
-  onAddToItinerary: (attraction: Attraction) => void;
-  onSelectStop: (stopId: string) => void;
+  onSelectStop?: (stopId: string) => void;
+  onShowOnMap?: (attractionId: string) => void;
 }
 
 export const AttractionDetailModal: React.FC<AttractionDetailModalProps> = ({
   attraction,
   nearestStop,
   onClose,
-  onPlanRouteHere,
-  onAddToItinerary,
   onSelectStop,
+  onShowOnMap,
 }) => {
   if (!attraction) return null;
 
@@ -43,11 +42,14 @@ export const AttractionDetailModal: React.FC<AttractionDetailModalProps> = ({
           </button>
         </div>
 
-        {/* Hero Image */}
+        {/* Hero Image with fallback */}
         <div className="relative aspect-[16/9] w-full overflow-hidden bg-[#111111]">
           <img
             src={attraction.image}
             alt={attraction.name}
+            onError={(e) => {
+              (e.currentTarget as HTMLImageElement).src = getCategoryFallbackImage(attraction.category);
+            }}
             className="w-full h-full object-cover"
           />
           <div className="absolute bottom-4 left-4 bg-[#FFFFFF] border border-[#111111] px-3 py-1 text-xs font-mono">
@@ -123,7 +125,7 @@ export const AttractionDetailModal: React.FC<AttractionDetailModalProps> = ({
                   <button
                     onClick={() => {
                       onClose();
-                      onSelectStop(nearestStop.id);
+                      if (onSelectStop) onSelectStop(nearestStop.id);
                     }}
                     className="text-lg font-bold font-display text-[#111111] hover:underline flex items-center gap-1.5 mt-0.5 text-left"
                   >
@@ -156,25 +158,24 @@ export const AttractionDetailModal: React.FC<AttractionDetailModalProps> = ({
           {/* Action Footer */}
           <div className="pt-4 border-t border-[#D9D9D4] flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-3">
             <button
-              onClick={() => {
-                onAddToItinerary(attraction);
-              }}
-              className="px-5 py-3 border border-[#111111] text-[#111111] hover:bg-[#111111] hover:text-white transition-colors text-xs font-mono uppercase tracking-wider flex items-center justify-center gap-2"
+              onClick={onClose}
+              className="px-5 py-3 border border-[#111111] text-[#111111] hover:bg-[#F5F5F2] transition-colors text-xs font-mono uppercase tracking-wider"
             >
-              <Plus className="w-4 h-4" strokeWidth={1.5} />
-              <span>Add to Itinerary</span>
+              Close
             </button>
 
-            <button
-              onClick={() => {
-                onClose();
-                onPlanRouteHere(attraction.id);
-              }}
-              className="px-6 py-3 bg-[#1E4D6B] text-white hover:bg-[#111111] transition-colors text-xs font-mono uppercase tracking-wider flex items-center justify-center gap-2"
-            >
-              <Navigation className="w-4 h-4" strokeWidth={1.5} />
-              <span>Get Public Transport Route</span>
-            </button>
+            {onShowOnMap && (
+              <button
+                onClick={() => {
+                  onClose();
+                  onShowOnMap(attraction.id);
+                }}
+                className="px-6 py-3 bg-[#111111] text-white hover:bg-[#1E4D6B] transition-colors text-xs font-mono uppercase tracking-wider flex items-center justify-center gap-2"
+              >
+                <MapIcon className="w-4 h-4" strokeWidth={1.5} />
+                <span>Show on Interactive Map</span>
+              </button>
+            )}
           </div>
 
         </div>

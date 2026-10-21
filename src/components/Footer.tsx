@@ -49,8 +49,8 @@ export const Footer: React.FC<FooterProps> = ({ onNavigateSection }) => {
                 </button>
               </li>
               <li>
-                <button onClick={() => onNavigateSection('routes')} className="hover:text-[#111111] transition-colors">
-                  → Route & Journey Planner
+                <button onClick={() => onNavigateSection('weather')} className="hover:text-[#111111] transition-colors">
+                  → Weather & Microclimates
                 </button>
               </li>
               <li>

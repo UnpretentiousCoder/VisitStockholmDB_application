@@ -1,25 +1,21 @@
 import React, { useState } from 'react';
-import { Compass, Train, Navigation, BarChart3, Sparkles, MapPin, Calendar, Menu, X } from 'lucide-react';
+import { Compass, Train, BarChart3, Sparkles, MapPin, CloudSun, Menu, X } from 'lucide-react';
 
 interface NavbarProps {
   activeTab: string;
   setActiveTab: (tab: string) => void;
-  itineraryCount: number;
-  onOpenItinerary: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
   activeTab,
   setActiveTab,
-  itineraryCount,
-  onOpenItinerary,
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const navItems = [
     { id: 'explore', label: 'Explore', icon: Compass },
     { id: 'transport', label: 'Transport', icon: Train },
-    { id: 'routes', label: 'Plan Route', icon: Navigation },
+    { id: 'weather', label: 'Weather', icon: CloudSun },
     { id: 'reliability', label: 'Reliability', icon: BarChart3 },
     { id: 'ask', label: 'Ask Stockholm', icon: Sparkles },
     { id: 'map', label: 'Map', icon: MapPin },
@@ -47,7 +43,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               </span>
             </div>
             <div className="text-[10px] uppercase tracking-[0.2em] font-mono text-[#666666] pl-4">
-              Holiday Planner · SL Transit
+              City Guide · SL Transit
             </div>
           </div>
 
@@ -79,39 +75,26 @@ export const Navbar: React.FC<NavbarProps> = ({
           {/* Right Action buttons */}
           <div className="hidden sm:flex items-center gap-3">
             <button
-              onClick={onOpenItinerary}
-              className="relative px-3.5 py-2 text-xs font-mono uppercase tracking-wider text-[#111111] border border-[#111111] hover:bg-[#111111] hover:text-[#FFFFFF] transition-all flex items-center gap-2"
-              title="Open Itinerary"
+              onClick={() => handleNavClick('weather')}
+              className={`px-4 py-2 text-xs font-mono uppercase tracking-wider transition-colors flex items-center gap-2 ${
+                activeTab === 'weather'
+                  ? 'bg-[#1E4D6B] text-white'
+                  : 'bg-[#111111] text-white hover:bg-[#1E4D6B]'
+              }`}
             >
-              <Calendar className="w-3.5 h-3.5" strokeWidth={1.5} />
-              <span>Itinerary</span>
-              {itineraryCount > 0 && (
-                <span className="px-1.5 py-0.2 bg-[#1E4D6B] text-white text-[10px] font-mono font-semibold rounded-none">
-                  {itineraryCount}
-                </span>
-              )}
-            </button>
-
-            <button
-              onClick={() => handleNavClick('routes')}
-              className="px-5 py-2.5 text-xs font-mono uppercase tracking-wider bg-[#111111] text-[#FFFFFF] hover:bg-[#1E4D6B] transition-colors"
-            >
-              Plan My Trip
+              <CloudSun className="w-3.5 h-3.5" />
+              <span>Live Weather</span>
             </button>
           </div>
 
           {/* Mobile menu trigger */}
           <div className="flex sm:hidden items-center gap-2">
             <button
-              onClick={onOpenItinerary}
-              className="p-2 border border-[#111111] relative text-[#111111]"
+              onClick={() => handleNavClick('weather')}
+              className="p-2 border border-[#111111] text-[#111111]"
+              title="Live Weather"
             >
-              <Calendar className="w-4 h-4" strokeWidth={1.5} />
-              {itineraryCount > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 bg-[#1E4D6B] text-white text-[9px] w-4 h-4 flex items-center justify-center font-mono">
-                  {itineraryCount}
-                </span>
-              )}
+              <CloudSun className="w-4 h-4" strokeWidth={1.5} />
             </button>
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -149,10 +132,11 @@ export const Navbar: React.FC<NavbarProps> = ({
           })}
           <div className="pt-2">
             <button
-              onClick={() => handleNavClick('routes')}
-              className="w-full py-3 bg-[#111111] text-[#FFFFFF] text-xs font-mono uppercase tracking-wider"
+              onClick={() => handleNavClick('weather')}
+              className="w-full py-3 bg-[#111111] text-[#FFFFFF] text-xs font-mono uppercase tracking-wider flex items-center justify-center gap-2"
             >
-              Plan My Trip
+              <CloudSun className="w-4 h-4" />
+              Check Today's Weather
             </button>
           </div>
         </div>

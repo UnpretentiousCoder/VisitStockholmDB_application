@@ -63,8 +63,10 @@ The interface embodies the discipline of minimalist monochrome design paired wit
    * Automatically calculates public transport links between consecutive items.
    * Saved in browser `localStorage` and ready for clean printing.
 
-8. **Interactive Editorial Cartography**
-   * Full-featured Leaflet map with CartoDB Positron minimalist grayscale tiles.
+8. **Interactive OpenStreetMap API + Leaflet Cartography**
+   * Official OpenStreetMap standard tile layers with full OSM attribution and tile style toggles (`OSM Standard`, `OSM Humanitarian`, `OSM Light`).
+   * Live **OpenStreetMap Nominatim Geocoding API** integration: real-time search across Stockholm addresses and landmarks with instant dropdown matches, dynamic pin placement, and camera fly-to animations.
+   * Quick navigation hotspot pills to jump across Stockholm key districts: *Stockholm Center*, *Gamla Stan*, *Djurgården*, *Södermalm*, and *Skeppsholmen*.
    * Monochrome pins for attractions, Nordic blue pins for SL stops, and color-coded SL line polylines.
    * Interactive popups with instant route calculation and itinerary triggers.
 

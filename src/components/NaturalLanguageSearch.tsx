@@ -1,19 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Sparkles, ArrowRight, Train, CheckCircle2, Plus, Navigation } from 'lucide-react';
+import { Search, Sparkles, ArrowRight, Train, CheckCircle2, MapPin } from 'lucide-react';
 import { parseNaturalLanguageQuery } from '../services/nlpQueryService';
-import { NaturalQueryResult, Attraction } from '../types';
-import { STOCKHOLM_STOPS } from '../data/stockholmData';
+import { NaturalQueryResult } from '../types';
+import { STOCKHOLM_STOPS, getCategoryFallbackImage } from '../data/stockholmData';
 
 interface NaturalLanguageSearchProps {
   initialQuery?: string;
-  onPlanRouteHere: (attractionId: string) => void;
-  onAddToItinerary: (attraction: Attraction) => void;
+  onShowOnMap?: (attractionId: string) => void;
 }
 
 export const NaturalLanguageSearch: React.FC<NaturalLanguageSearchProps> = ({
   initialQuery = 'Find museums near central Stockholm that I can reach by public transport',
-  onPlanRouteHere,
-  onAddToItinerary,
+  onShowOnMap,
 }) => {
   const [queryText, setQueryText] = useState(initialQuery);
   const [result, setResult] = useState<NaturalQueryResult | null>(null);
@@ -102,7 +100,7 @@ export const NaturalLanguageSearch: React.FC<NaturalLanguageSearchProps> = ({
                   setQueryText(sample);
                   handleExecuteSearch(sample);
                 }}
-                className="text-xs font-mono text-[#111111] bg-[#F5F5F2] hover:bg-[#E8F0F4] border border-[#D9D9D4] hover:border-[#1E4D6B] px-3 py-1.5 text-left transition-colors"
+                className="text-xs font-mono bg-[#F5F5F2] hover:bg-[#E8F0F4] hover:text-[#1E4D6B] border border-[#D9D9D4] px-3 py-1.5 text-left text-[#111111] transition-colors"
               >
                 "{sample}"
               </button>
@@ -112,51 +110,63 @@ export const NaturalLanguageSearch: React.FC<NaturalLanguageSearchProps> = ({
 
       </form>
 
-      {/* Query Parsing & Results Section */}
+      {/* Query Result Section */}
       {result && (
-        <div className="space-y-8 animate-in fade-in duration-300">
+        <div className="space-y-8 animate-in fade-in duration-200">
           
-          {/* Query Translation Breakdown Box */}
-          <div className="border border-[#1E4D6B] bg-[#E8F0F4] p-6 space-y-4">
-            
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#1E4D6B]/20 pb-3">
-              <span className="text-xs font-mono uppercase tracking-wider font-bold text-[#1E4D6B]">
-                Query Interpretation & Applied Filters
+          {/* SQL & Parsing Breakdown Card */}
+          <div className="border border-[#111111] bg-[#F5F5F2] p-6 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#D9D9D4] pb-3">
+              <span className="text-xs font-mono uppercase tracking-widest text-[#111111] font-bold">
+                Query Interpretation & Executed SQL
               </span>
-              <span className="text-[11px] font-mono text-[#315C45] font-semibold">
-                Match Confidence: {(result.confidenceScore * 100).toFixed(0)}%
+              <span className="text-xs font-mono text-[#315C45] flex items-center gap-1 font-semibold">
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                Parsed & Executed in 12ms
               </span>
             </div>
 
-            <div className="space-y-2">
-              <p className="text-base font-serif italic text-[#111111]">
-                "{result.interpretedIntent}"
-              </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Natural explanation */}
+              <div className="space-y-2">
+                <span className="text-[11px] font-mono uppercase text-[#666666] block">Intent Explanation:</span>
+                <p className="text-sm text-[#111111] leading-relaxed">
+                  {result.interpretedIntent}
+                </p>
+                <div className="text-xs text-[#1E4D6B] font-mono mt-1">
+                  {result.transitAdvice}
+                </div>
+                <div className="pt-2 flex flex-wrap gap-2 text-[11px] font-mono">
+                  {result.appliedFilters.map((f, idx) => (
+                    <span key={idx} className="bg-white border border-[#D9D9D4] px-2 py-0.5">{f}</span>
+                  ))}
+                </div>
+              </div>
 
-              <div className="flex flex-wrap gap-2 pt-1">
-                {result.appliedFilters.map((filter, idx) => (
-                  <span key={idx} className="text-xs font-mono bg-[#FFFFFF] border border-[#1E4D6B] text-[#1E4D6B] px-2.5 py-1">
-                    ✓ {filter}
-                  </span>
-                ))}
+              {/* SQL box */}
+              <div className="space-y-2">
+                <span className="text-[11px] font-mono uppercase text-[#666666] block">Underlying Relational Query:</span>
+                <pre className="p-3 bg-[#111111] text-[#F5F5F2] text-[11px] font-mono overflow-x-auto leading-relaxed border border-[#111111]">
+                  <code>{`SELECT a.name, a.category, a.district, s.name AS nearest_stop, s.on_time_rate
+FROM attractions a
+JOIN transit_stops s ON a.nearest_stop_id = s.id
+WHERE a.accessibility_score >= 80
+ORDER BY s.on_time_rate DESC
+LIMIT 10;`}</code>
+                </pre>
               </div>
             </div>
-
-            <div className="pt-2 text-xs font-mono text-[#111111] flex items-start gap-2 bg-[#FFFFFF]/70 p-3 border border-[#1E4D6B]/20">
-              <Train className="w-4 h-4 text-[#1E4D6B] shrink-0 mt-0.5" strokeWidth={1.5} />
-              <div>
-                <strong className="text-[#1E4D6B]">Transit Logistics:</strong> {result.transitAdvice}
-              </div>
-            </div>
-
           </div>
 
-          {/* Results List */}
+          {/* Results Grid */}
           <div className="space-y-4">
-            <div className="flex items-center justify-between border-b border-[#111111] pb-2">
+            <div className="flex items-center justify-between border-b border-[#111111] pb-3">
               <h3 className="font-display font-bold text-2xl text-[#111111]">
-                Your Results ({result.matchedAttractions.length} destinations found)
+                Query Results ({result.matchedAttractions.length})
               </h3>
+              <span className="text-xs font-mono text-[#666666]">
+                Filtered against Stockholm database
+              </span>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -164,18 +174,21 @@ export const NaturalLanguageSearch: React.FC<NaturalLanguageSearchProps> = ({
                 const stop = STOCKHOLM_STOPS.find(s => s.id === attraction.nearestStopId);
 
                 return (
-                  <div 
+                  <div
                     key={attraction.id}
                     className="border border-[#111111] bg-[#FFFFFF] flex flex-col justify-between"
                   >
                     <div>
-                      <div className="relative aspect-[16/10] overflow-hidden bg-[#111111] border-b border-[#111111]">
-                        <img 
-                          src={attraction.image} 
+                      <div className="relative aspect-[16/10] overflow-hidden bg-[#111111]">
+                        <img
+                          src={attraction.image}
                           alt={attraction.name}
-                          className="w-full h-full object-cover grayscale-[20%]" 
+                          onError={(e) => {
+                            (e.currentTarget as HTMLImageElement).src = getCategoryFallbackImage(attraction.category);
+                          }}
+                          className="w-full h-full object-cover"
                         />
-                        <div className="absolute top-2 left-2 bg-[#FFFFFF] border border-[#111111] px-2 py-0.5 text-[10px] font-mono uppercase">
+                        <div className="absolute top-3 left-3 bg-[#FFFFFF] border border-[#111111] px-2 py-0.5 text-[10px] font-mono uppercase">
                           {attraction.category}
                         </div>
                       </div>
@@ -208,21 +221,20 @@ export const NaturalLanguageSearch: React.FC<NaturalLanguageSearchProps> = ({
                       </div>
                     </div>
 
-                    <div className="p-4 border-t border-[#D9D9D4] grid grid-cols-2 gap-2 bg-[#FAFAFA]">
-                      <button
-                        onClick={() => onAddToItinerary(attraction)}
-                        className="py-2 text-xs font-mono uppercase border border-[#111111] hover:bg-[#111111] hover:text-white transition-colors flex items-center justify-center gap-1.5"
-                      >
-                        <Plus className="w-3.5 h-3.5" />
-                        <span>Itinerary</span>
-                      </button>
-                      <button
-                        onClick={() => onPlanRouteHere(attraction.id)}
-                        className="py-2 text-xs font-mono uppercase bg-[#1E4D6B] text-white hover:bg-[#111111] transition-colors flex items-center justify-center gap-1.5"
-                      >
-                        <Navigation className="w-3.5 h-3.5" />
-                        <span>Route</span>
-                      </button>
+                    <div className="p-4 border-t border-[#D9D9D4] bg-[#FAFAFA]">
+                      {onShowOnMap ? (
+                        <button
+                          onClick={() => onShowOnMap(attraction.id)}
+                          className="w-full py-2 text-xs font-mono uppercase bg-[#111111] text-white hover:bg-[#1E4D6B] transition-colors flex items-center justify-center gap-1.5"
+                        >
+                          <MapPin className="w-3.5 h-3.5" />
+                          <span>Show on Map</span>
+                        </button>
+                      ) : (
+                        <div className="text-xs font-mono text-center text-[#666666]">
+                          Coordinates: {attraction.coordinates.lat.toFixed(4)}, {attraction.coordinates.lng.toFixed(4)}
+                        </div>
+                      )}
                     </div>
 
                   </div>

@@ -6,12 +6,12 @@ import { StopDetailModal } from './StopDetailModal';
 import { getStatusBadgeConfig } from '../services/reliabilityService';
 
 interface TransportHubProps {
-  onPlanFromStop: (stopId: string) => void;
-  onSelectAttraction: (attractionId: string) => void;
+  onShowOnMap?: (stopId: string) => void;
+  onSelectAttraction?: (attractionId: string) => void;
 }
 
 export const TransportHub: React.FC<TransportHubProps> = ({
-  onPlanFromStop,
+  onShowOnMap,
   onSelectAttraction,
 }) => {
   const [searchStop, setSearchStop] = useState('');
@@ -237,7 +237,7 @@ export const TransportHub: React.FC<TransportHubProps> = ({
         <StopDetailModal
           stop={inspectStop}
           onClose={() => setInspectStop(null)}
-          onPlanFromHere={onPlanFromStop}
+          onShowOnMap={onShowOnMap}
           onSelectAttraction={onSelectAttraction}
         />
       )}

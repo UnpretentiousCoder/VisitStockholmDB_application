@@ -1,16 +1,16 @@
 import React, { useState } from 'react';
-import { Train, ShieldCheck, ArrowRight, Compass, Sparkles, Navigation, Plus } from 'lucide-react';
+import { Train, Sparkles, MapPin, ExternalLink } from 'lucide-react';
 import { Attraction } from '../types';
 import { STOCKHOLM_ATTRACTIONS, STOCKHOLM_STOPS } from '../data/stockholmData';
 
 interface TourismTransportIntegrationProps {
-  onPlanRouteHere: (attractionId: string) => void;
-  onAddToItinerary: (attraction: Attraction) => void;
+  onShowOnMap?: (attractionId: string) => void;
+  onSelectStop?: (stopId: string) => void;
 }
 
 export const TourismTransportIntegration: React.FC<TourismTransportIntegrationProps> = ({
-  onPlanRouteHere,
-  onAddToItinerary,
+  onShowOnMap,
+  onSelectStop,
 }) => {
   const [selectedStrategy, setSelectedStrategy] = useState<string>('reliable');
 
@@ -140,20 +140,24 @@ export const TourismTransportIntegration: React.FC<TourismTransportIntegrationPr
               </div>
 
               <div className="grid grid-cols-2 gap-2 pt-2 border-t border-[#D9D9D4]">
-                <button
-                  onClick={() => onAddToItinerary(attraction)}
-                  className="py-1.5 px-2 text-[11px] font-mono uppercase tracking-wider border border-[#111111] hover:bg-[#111111] hover:text-white transition-colors flex items-center justify-center gap-1"
-                >
-                  <Plus className="w-3 h-3" />
-                  <span>Itinerary</span>
-                </button>
-                <button
-                  onClick={() => onPlanRouteHere(attraction.id)}
-                  className="py-1.5 px-2 text-[11px] font-mono uppercase tracking-wider bg-[#1E4D6B] text-white hover:bg-[#111111] transition-colors flex items-center justify-center gap-1"
-                >
-                  <Navigation className="w-3 h-3" />
-                  <span>Route</span>
-                </button>
+                {onShowOnMap && (
+                  <button
+                    onClick={() => onShowOnMap(attraction.id)}
+                    className="py-1.5 px-2 text-[11px] font-mono uppercase tracking-wider border border-[#111111] hover:bg-[#111111] hover:text-white transition-colors flex items-center justify-center gap-1"
+                  >
+                    <MapPin className="w-3 h-3" />
+                    <span>Map</span>
+                  </button>
+                )}
+                {stop && onSelectStop && (
+                  <button
+                    onClick={() => onSelectStop(stop.id)}
+                    className="py-1.5 px-2 text-[11px] font-mono uppercase tracking-wider bg-[#1E4D6B] text-white hover:bg-[#111111] transition-colors flex items-center justify-center gap-1"
+                  >
+                    <ExternalLink className="w-3 h-3" />
+                    <span>View Stop</span>
+                  </button>
+                )}
               </div>
 
             </div>

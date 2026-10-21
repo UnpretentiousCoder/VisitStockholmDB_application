@@ -110,46 +110,67 @@ export interface RoutePerformanceRecord {
   primaryDisruptionCause?: string;
 }
 
-export interface JourneyStep {
-  id: string;
-  type: 'walk' | 'board' | 'transfer' | 'arrive';
-  instruction: string;
-  mode?: TransportMode;
-  lineCode?: string;
-  lineName?: string;
-  fromStopName?: string;
-  toStopName?: string;
-  durationMinutes: number;
-  distanceMeters?: number;
-  stopsCount?: number;
-  intermediateStops?: string[];
-  status?: PunctualityStatus;
-  delayAlert?: string;
+export type WeatherCondition =
+  | 'clear'
+  | 'partly-cloudy'
+  | 'overcast'
+  | 'light-rain'
+  | 'rain'
+  | 'drizzle'
+  | 'fog'
+  | 'snow';
+
+export interface DistrictWeather {
+  district: District;
+  temperatureC: number;
+  feelsLikeC: number;
+  rainfallMm: number;
+  rainProbabilityPercent: number;
+  weatherType: string;
+  condition: WeatherCondition;
+  humidityPercent: number;
+  windSpeedKmh: number;
+  windDirection: string;
+  uvIndex: number;
+  advisory: string;
+  ferryStatus: 'smooth' | 'moderate' | 'choppy';
+  bestActivity: string;
 }
 
-export interface JourneyOption {
-  id: string;
-  originName: string;
-  destinationName: string;
-  totalDurationMinutes: number;
-  walkingMinutes: number;
-  transitMinutes: number;
-  transfersCount: number;
-  departureTime: string;
-  arrivalTime: string;
-  overallReliability: number;
-  status: PunctualityStatus;
-  steps: JourneyStep[];
+export interface HourlyWeatherItem {
+  hourLabel: string; // e.g. "08:00"
+  hour: number;
+  tempC: number;
+  rainMm: number;
+  rainProbability: number;
+  condition: WeatherCondition;
+  weatherType: string;
 }
 
-export interface ItineraryItem {
-  id: string;
-  attractionId: string;
-  dayNumber: number;
-  order: number;
-  scheduledTime: string;
-  durationMinutes: number;
-  customNotes?: string;
+export interface DailyWeatherItem {
+  dayName: string; // e.g. "Today", "Mon", "Tue"
+  dateLabel: string; // e.g. "18 Oct"
+  tempHighC: number;
+  tempLowC: number;
+  rainProbability: number;
+  condition: WeatherCondition;
+  weatherType: string;
+}
+
+export interface StockholmWeatherSummary {
+  currentDateFormatted: string; // e.g. "Sunday, 18 October 2026"
+  currentTimeFormatted: string; // e.g. "14:30 CEST"
+  overallTempC: number;
+  overallFeelsLikeC: number;
+  overallRainfallMm: number;
+  overallRainProbability: number;
+  overallWeatherType: string;
+  overallCondition: WeatherCondition;
+  overallHumidity: number;
+  overallWindKmh: number;
+  districts: DistrictWeather[];
+  hourly: HourlyWeatherItem[];
+  daily: DailyWeatherItem[];
 }
 
 export interface NaturalQueryFilter {
