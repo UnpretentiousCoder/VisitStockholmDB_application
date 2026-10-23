@@ -1,17 +1,15 @@
-
-import psycopg2
-import datetime
+import psycopg
 import destination_set_up
 import location_set_up
-import weather_set_up
 
 ### connect to the database
-conn = psycopg2.connect(
+
+conn = psycopg.connect(
     dbname="visitsweden",
     user="visit",
     password="sweden",
-    host="localhost",
-    port=5434
+    host="db",
+    port=5432
 )
 
 

@@ -10,7 +10,7 @@ services:
     environment:
       - PORT=3000
       - DB_HOST=${DB_HOST:-db}
-      - DB_PORT=${DB_PORT:-5434}
+      - DB_PORT=${DB_PORT:-5432}
       - DB_USER=${DB_USER:-postgres}
       - DB_PASSWORD=${DB_PASSWORD:-postgres}
       - DB_NAME=${DB_NAME:-postgres}
@@ -60,20 +60,6 @@ services:
   # If your group already has their PostgreSQL container running with port 5432 mapped,
   # you can comment this block out and set DB_HOST=host.docker.internal in your .env file.
   # If they want a self-contained stack, this runs PostgreSQL 16 automatically.
-  # db:
-  #   image: postgres:16-alpine
-  #   container_name: stockholm-db
-  #   ports:
-  #     - "5434:5432"
-  #   environment:
-  #     POSTGRES_USER: ${DB_USER:-postgres}
-  #     POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
-  #     POSTGRES_DB: ${DB_NAME:-postgres}
-  #   volumes:
-  #     - pgdata:/var/lib/postgresql/data
-  #   restart: unless-stopped
-  #   networks:
-  #     - exchange-network
   db:
     image: postgis/postgis:latest
     shm_size: 128mb
@@ -84,7 +70,7 @@ services:
     ports:
       - "5434:5432"
     volumes:
-      # - pgdata:/var/lib/postgresql
+      - pgdata:/var/lib/postgresql/data
       - ./database/db.sql:/docker-entrypoint-initdb.d/db.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U visit -d visitsweden"]
@@ -94,21 +80,34 @@ services:
       start_period: 30s
     networks:
       - exchange-network
-    
+
   importer:
-    build: .
+    build:
+      context: ./database/
+      #dockerfile: Dockerfile
     depends_on:
       db:
         condition: service_healthy
     environment:
       DB_HOST: db
-      DB_PORT: "5434"
+      DB_PORT: "5432"
       DB_NAME: visitsweden
       DB_USER: visit
       DB_PASSWORD: sweden
+    command: >
+      sh -c "python -u src/init_db.py &&
+             python -u src/attraction.py"
+    restart: "no"
     networks:
       - exchange-network
 
+  adminer:
+    image: adminer
+    restart: always
+    ports:
+      - "8087:8080"
+    depends_on:
+      - db
 volumes:
   ollama_models:
   pgdata:
@@ -117,4 +116,3 @@ networks:
   exchange-network:
     name: exchange-network
     driver: bridge
-

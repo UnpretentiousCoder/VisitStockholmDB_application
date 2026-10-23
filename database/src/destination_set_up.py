@@ -1,7 +1,4 @@
-import psycopg2
-import time
 import requests
-import sys
 
 
 def get_all_detinatios():
