@@ -1,0 +1,57 @@
+
+services:
+  db:
+    image: postgis/postgis:latest
+    shm_size: 128mb
+    environment:
+      POSTGRES_USER: visit
+      POSTGRES_PASSWORD: sweden
+      POSTGRES_DB: visitsweden
+    ports:
+      - "5434:5432"
+    volumes:
+      # - pgdata:/var/lib/postgresql
+      - ./db.sql:/docker-entrypoint-initdb.d/db.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U visit -d visitsweden"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+    
+  importer:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_HOST: db
+      DB_PORT: "5432"
+      DB_NAME: visitsweden
+      DB_USER: visit
+      DB_PASSWORD: sweden
+
+  init:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: visitsweden
+      DB_USER: visit
+      DB_PASSWORD: sweden
+    command: python src/init_db.py
+    restart: "no"
+
+  adminer:
+    image: adminer
+    restart: always
+    ports:
+      - "8087:8080"
+    depends_on:
+      - db
+
+volumes:
+  pgdata:
