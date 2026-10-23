@@ -26,7 +26,7 @@ services:
         condition: service_healthy
     environment:
       DB_HOST: db
-      DB_PORT: "5432"
+      DB_PORT: "5434"
       DB_NAME: visitsweden
       DB_USER: visit
       DB_PASSWORD: sweden

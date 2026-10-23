@@ -10,7 +10,7 @@ services:
     environment:
       - PORT=3000
       - DB_HOST=${DB_HOST:-db}
-      - DB_PORT=${DB_PORT:-5432}
+      - DB_PORT=${DB_PORT:-5434}
       - DB_USER=${DB_USER:-postgres}
       - DB_PASSWORD=${DB_PASSWORD:-postgres}
       - DB_NAME=${DB_NAME:-postgres}
@@ -60,18 +60,52 @@ services:
   # If your group already has their PostgreSQL container running with port 5432 mapped,
   # you can comment this block out and set DB_HOST=host.docker.internal in your .env file.
   # If they want a self-contained stack, this runs PostgreSQL 16 automatically.
+  # db:
+  #   image: postgres:16-alpine
+  #   container_name: stockholm-db
+  #   ports:
+  #     - "5434:5432"
+  #   environment:
+  #     POSTGRES_USER: ${DB_USER:-postgres}
+  #     POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+  #     POSTGRES_DB: ${DB_NAME:-postgres}
+  #   volumes:
+  #     - pgdata:/var/lib/postgresql/data
+  #   restart: unless-stopped
+  #   networks:
+  #     - exchange-network
   db:
-    image: postgres:16-alpine
-    container_name: stockholm-db
+    image: postgis/postgis:latest
+    shm_size: 128mb
+    environment:
+      POSTGRES_USER: visit
+      POSTGRES_PASSWORD: sweden
+      POSTGRES_DB: visitsweden
     ports:
       - "5434:5432"
-    environment:
-      POSTGRES_USER: ${DB_USER:-postgres}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
-      POSTGRES_DB: ${DB_NAME:-postgres}
     volumes:
-      - pgdata:/var/lib/postgresql/data
-    restart: unless-stopped
+      # - pgdata:/var/lib/postgresql
+      - ./database/db.sql:/docker-entrypoint-initdb.d/db.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U visit -d visitsweden"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+    networks:
+      - exchange-network
+    
+  importer:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_HOST: db
+      DB_PORT: "5434"
+      DB_NAME: visitsweden
+      DB_USER: visit
+      DB_PASSWORD: sweden
     networks:
       - exchange-network
 
