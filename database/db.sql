@@ -2,6 +2,7 @@ CREATE EXTENSION IF NOT EXISTS postgis;
 
 CREATE TABLE IF NOT EXISTS location (
     location_id         SERIAL PRIMARY KEY,
+    name                TEXT,
     location            GEOGRAPHY(Point, 4326)
 );
 

@@ -9,12 +9,13 @@ services:
       - "3000:3000"
     environment:
       - PORT=3000
-      - DB_HOST=${DB_HOST:-db}
-      - DB_PORT=${DB_PORT:-5432}
-      - DB_USER=${DB_USER:-postgres}
-      - DB_PASSWORD=${DB_PASSWORD:-postgres}
-      - DB_NAME=${DB_NAME:-postgres}
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_USER=visit
+      - DB_PASSWORD=sweden
+      - DB_NAME=visitsweden
       - OLLAMA_HOST=http://ollama:11434
+
     depends_on:
       - ollama
     extra_hosts:
