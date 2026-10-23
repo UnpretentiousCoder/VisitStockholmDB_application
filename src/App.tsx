@@ -17,23 +17,27 @@ export function App() {
 
   // Handler: Hero Search bar
   const handleHeroSearch = (query: string) => {
-    const qLower = query.toLowerCase();
-    // If it looks like a complex natural language sentence, switch to Ask Stockholm
-    if (
+    const qLower = query.toLowerCase().trim();
+    const isNaturalLanguage = 
+      qLower.split(/\s+/).length > 2 ||
       qLower.startsWith('find') || 
       qLower.startsWith('what') || 
       qLower.startsWith('where') || 
+      qLower.startsWith('best') || 
+      qLower.startsWith('show') || 
+      qLower.includes('near') || 
       qLower.includes('can i') || 
       qLower.includes('reach by') || 
-      qLower.includes('within 1 km')
-    ) {
+      qLower.includes('within');
+
+    if (isNaturalLanguage) {
       setHeroSearchQuery(query);
       setActiveTab('ask');
     } else {
       setHeroSearchQuery(query);
       setActiveTab('explore');
     }
-    window.scrollTo({ top: 400, behavior: 'smooth' });
+    window.scrollTo({ top: 300, behavior: 'smooth' });
   };
 
   // Handler: Show an attraction or stop on the interactive map
