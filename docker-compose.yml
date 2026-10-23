@@ -1,0 +1,86 @@
+services:
+  # 1. Frontend & Backend API Bridge
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: stockholm-app
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      - DB_HOST=${DB_HOST:-db}
+      - DB_PORT=${DB_PORT:-5432}
+      - DB_USER=${DB_USER:-postgres}
+      - DB_PASSWORD=${DB_PASSWORD:-postgres}
+      - DB_NAME=${DB_NAME:-postgres}
+      - OLLAMA_HOST=http://ollama:11434
+    depends_on:
+      - ollama
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+    networks:
+      - exchange-network
+
+  # 2. Ollama LLM Container (runs locally with GPU or CPU)
+  ollama:
+    image: ollama/ollama:latest
+    container_name: stockholm-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_models:/root/.ollama
+    restart: unless-stopped
+    networks:
+      - exchange-network
+
+  # 3. Automatic model puller for qwen2.5-coder:3b
+  ollama-model-pull:
+    image: curlimages/curl:latest
+    container_name: stockholm-ollama-pull
+    depends_on:
+      - ollama
+    restart: "no"
+    entrypoint:
+      - "sh"
+      - "-c"
+      - |
+        echo "Waiting for Ollama to become ready..."
+        until curl -s http://ollama:11434/api/tags > /dev/null; do
+          sleep 2
+        done
+        echo "Ensuring model qwen2.5-coder:3b is loaded..."
+        curl -s -X POST http://ollama:11434/api/pull -d '{"name": "qwen2.5-coder:3b"}'
+        echo "Model qwen2.5-coder:3b is ready!"
+    networks:
+      - exchange-network
+
+  # 4. PostgreSQL Database
+  # If your group already has their PostgreSQL container running with port 5432 mapped,
+  # you can comment this block out and set DB_HOST=host.docker.internal in your .env file.
+  # If they want a self-contained stack, this runs PostgreSQL 16 automatically.
+  db:
+    image: postgres:16-alpine
+    container_name: stockholm-db
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_DB: ${DB_NAME:-postgres}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+    networks:
+      - exchange-network
+
+volumes:
+  ollama_models:
+  pgdata:
+
+networks:
+  exchange-network:
+    name: exchange-network
+    driver: bridge
+

@@ -1,5 +1,6 @@
 import { Attraction } from '../types';
-import { executeSql, mapSqlResultsToAttractions } from './inMemoryDatabase';
+import { mapSqlResultsToAttractions } from './inMemoryDatabase';
+import { executeDatabaseQuery } from './dbClient';
 import { parseNaturalLanguageQuery } from './nlpQueryService';
 import { STOCKHOLM_ATTRACTIONS } from '../data/stockholmData';
 
@@ -43,7 +44,7 @@ export const OLLAMA_MODEL = 'qwen2.5-coder:3b';
 export async function checkOllamaHealth(): Promise<{ online: boolean; hasModel: boolean }> {
   const tryEndpoint = async (url: string) => {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 2000);
+    const timeout = setTimeout(() => controller.abort(), 4000);
     try {
       const res = await fetch(url, { signal: controller.signal });
       clearTimeout(timeout);
@@ -259,27 +260,34 @@ LIMIT 10;`;
   // Helper to call Ollama
   const sendOllamaRequest = async (endpoint: string) => {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 12000); // 12s timeout
+    // Allow up to 60s for cold starts or CPU-bound inference
+    const timeout = setTimeout(() => controller.abort(), 60000);
 
-    const response = await fetch(endpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: OLLAMA_MODEL,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userQuestion },
-        ],
-        stream: false,
-        options: {
-          temperature: 0.1,
-          top_p: 0.9,
-        },
-      }),
-      signal: controller.signal,
-    });
-    clearTimeout(timeout);
-    return response;
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: OLLAMA_MODEL,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userQuestion },
+          ],
+          stream: false,
+          options: {
+            temperature: 0.1,
+            top_p: 0.9,
+            num_predict: 160, // Limit generated tokens to speed up response
+          },
+        }),
+        signal: controller.signal,
+      });
+      clearTimeout(timeout);
+      return response;
+    } catch (err) {
+      clearTimeout(timeout);
+      throw err;
+    }
   };
 
   let rawModelOutput = '';
@@ -289,7 +297,13 @@ LIMIT 10;`;
     let response: Response | null = null;
     try {
       response = await sendOllamaRequest(OLLAMA_PROXY_URL);
-    } catch {
+    } catch (proxyErr: any) {
+      // If it timed out, do not waste another minute hitting direct URL
+      const isAbort = proxyErr?.name === 'AbortError' || proxyErr?.message?.toLowerCase().includes('abort');
+      if (isAbort) {
+        throw new Error('Ollama inference timed out after 60 seconds. The model is likely still loading or running on CPU.');
+      }
+      // Otherwise fallback to direct URL
       response = await sendOllamaRequest(OLLAMA_DIRECT_URL);
     }
 
@@ -305,17 +319,21 @@ LIMIT 10;`;
       throw new Error(`Model generated non-SELECT output: ${cleanSql.slice(0, 100)}`);
     }
 
-    // Execute generated SQL against in-memory database
-    const rows = executeSql(cleanSql);
+    // Execute generated SQL against PostgreSQL container (or in-memory fallback)
+    const dbResult = await executeDatabaseQuery(cleanSql);
+    const rows = dbResult.rows;
     const matchedAttractions = mapSqlResultsToAttractions(rows);
 
     const endTime = performance.now();
     const executionTimeMs = Math.round(endTime - startTime);
 
+    const dbSourceLabel = dbResult.source === 'postgresql' ? 'PostgreSQL Container' : 'In-Memory Fallback';
+
     // Diagnostic console group logging
     console.group(`%c[Ollama Text-to-SQL] %c"${userQuestion}"`, 'color: #1E4D6B; font-weight: bold; font-size: 13px;', 'color: #111;');
     console.log('%cRaw Model Output:%c\n' + rawModelOutput, 'color: #666; font-weight: bold;', 'color: #222; font-family: monospace;');
     console.log('%cCleaned Executed SQL:%c\n' + cleanSql, 'color: #1E4D6B; font-weight: bold;', 'color: #0b3d60; font-family: monospace; font-weight: 600; background: #e8f0f4; padding: 4px;');
+    console.log(`%cDatabase Source:%c ${dbSourceLabel}`, 'color: #1E4D6B; font-weight: bold;', 'font-weight: bold; color: #2e7d32;');
     console.log('%cDatabase Rows Returned (' + rows.length + '):', 'color: #315C45; font-weight: bold;', rows);
     console.log('%cMapped Attractions (' + matchedAttractions.length + '):', 'color: #315C45; font-weight: bold;', matchedAttractions.map(a => `${a.id}: ${a.name} (${a.district})`));
     console.log('%cExecution Latency:', 'color: #666;', `${executionTimeMs} ms`);
@@ -332,7 +350,7 @@ LIMIT 10;`;
         rawModelOutput,
         cleanedSql: cleanSql,
         executionTimeMs,
-        modelUsed: `${OLLAMA_MODEL} (Refined with Fallback)`,
+        modelUsed: `${OLLAMA_MODEL} (${dbSourceLabel} & Fallback)`,
         isFallback: true,
         fallbackReason: 'The generated SQL executed successfully but returned 0 rows matching current database criteria.',
         rowsCount: 0,
@@ -346,7 +364,7 @@ LIMIT 10;`;
         transitAdvice: fallbackResult.transitAdvice,
         appliedFilters: fallbackResult.appliedFilters,
         executionTimeMs,
-        modelUsed: `${OLLAMA_MODEL} (Refined with Fallback)`,
+        modelUsed: `${OLLAMA_MODEL} (${dbSourceLabel} & Fallback)`,
         isFallback: true,
         debugLog,
       };
@@ -358,7 +376,7 @@ LIMIT 10;`;
       rawModelOutput,
       cleanedSql: cleanSql,
       executionTimeMs,
-      modelUsed: `${OLLAMA_MODEL} (Local Ollama)`,
+      modelUsed: `${OLLAMA_MODEL} (${dbSourceLabel})`,
       isFallback: false,
       rowsCount: rows.length,
       rowsSample: rows.slice(0, 5),
@@ -371,7 +389,7 @@ LIMIT 10;`;
       transitAdvice: 'Directly reachable via the Stockholm SL transit network.',
       appliedFilters: [`Matched ${matchedAttractions.length} locations`],
       executionTimeMs,
-      modelUsed: `${OLLAMA_MODEL} (Local Ollama)`,
+      modelUsed: `${OLLAMA_MODEL} (${dbSourceLabel})`,
       isFallback: false,
       debugLog,
     };
