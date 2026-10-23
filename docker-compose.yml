@@ -64,7 +64,7 @@ services:
     image: postgres:16-alpine
     container_name: stockholm-db
     ports:
-      - "5432:5432"
+      - "5434:5432"
     environment:
       POSTGRES_USER: ${DB_USER:-postgres}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
