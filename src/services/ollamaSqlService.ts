@@ -1,5 +1,5 @@
 import { Attraction } from '../types';
-import { executeSql, mapSqlResultsToAttractions, STOCKHOLM_DB_SCHEMA } from './inMemoryDatabase';
+import { executeSql, mapSqlResultsToAttractions } from './inMemoryDatabase';
 import { parseNaturalLanguageQuery } from './nlpQueryService';
 import { STOCKHOLM_ATTRACTIONS } from '../data/stockholmData';
 
@@ -100,35 +100,162 @@ export async function queryTextToSql(userQuestion: string): Promise<TextToSqlRes
   const startTime = performance.now();
   const timestamp = new Date().toLocaleTimeString();
 
-  const systemPrompt = `You are an expert SQL generator for a Stockholm tourism and SL public transport database.
-Given the database schema below and the user request, output ONLY a valid SQLite-compatible SQL query.
+const systemPrompt = `You are an expert PostgreSQL and PostGIS SQL engineer for a Stockholm travel and tourism database.
+Your task is to convert a user's natural-language question into exactly ONE valid, read-only PostgreSQL SELECT query.
 
-${STOCKHOLM_DB_SCHEMA}
+OUTPUT FORMAT:
+Output ONLY the raw SQL query. Do not output markdown preambles, explanations, comments, or conversational text.
 
-IMPORTANT RULES:
-1. Output ONLY the raw SQL query. No explanations, no conversation.
-2. Query the 'attractions' table (e.g. SELECT a.id, a.name, a.category, a.district FROM attractions a).
-3. If public transport, metro, tram, ferry, or line punctuality is involved, JOIN transit_stops s ON a.nearest_stop_id = s.id.
-4. For text searches, ALWAYS use case-insensitive matching: LOWER(column) LIKE '%value%'
-5. Valid categories: 'museum', 'historic', 'dining', 'fika', 'hotel', 'viewpoint', 'park'.
-6. Valid districts: 'Gamla Stan', 'Djurgården', 'Södermalm', 'Norrmalm', 'Vasastan', 'Skeppsholmen', 'Kungsholmen'.
-7. Valid transport modes in transit_stops.modes: 'metro', 'tram', 'ferry', 'bus', 'commuter_train'.
-8. Default to LIMIT 10.
-9. ONLY SELECT statements are allowed. Never output INSERT, UPDATE, or DELETE.
+DATABASE SCHEMA:
+1. destination (Permanent physical places & venues)
+- destination_id: integer, primary key for a physical venue
+- location_id: integer, foreign key references location.location_id
+- name: text, venue name (e.g. 'Vasamuseet', 'Kungliga Slottet', 'Skansen Open-Air Museum & Zoo')
+- label: text, category ('museum', 'zoo', 'historic', 'park', 'viewpoint', 'dining', 'fika', 'hotel')
+- description: text, detailed description of the physical location
+- created_at: timestamptz, creation timestamp
+
+2. attraction (Temporary events & happenings)
+- attraction_id: integer, primary key for a temporary event
+- location_id: integer, foreign key references location.location_id
+- attraction_name: text, event title (e.g. 'Stockholm Jazz Festival', 'Royal Guard Special Parade', 'Winter Light Show')
+- attraction_type: text, event category ('festival', 'exhibition', 'concert', 'market', 'performance')
+- attraction_url: text, event URL
+
+3. location (Spatial points)
+- location_id: integer, primary key for a geographic point
+- location: geography(Point, 4326), PostGIS geographic coordinates (longitude, latitude)
+
+4. weather (Meteorological records)
+- location_id: integer, foreign key references location.location_id
+- weather_date: timestamptz, timestamp of weather measurement
+- temperature: numeric, temperature in Celsius
+- rainfall: numeric, rainfall in millimeters
+- weather_type: text, weather description (e.g. 'sunny', 'partly cloudy', 'cloudy', 'rain')
+
+CRITICAL DOMAIN RULES:
+1. DESTINATIONS VS ATTRACTIONS:
+   - Use 'destination' for ALL physical, permanent places to visit:
+     * Museums (e.g. Vasa Museum, Moderna Museet, ABBA Museum)
+     * Zoos, wildlife & open-air heritage grounds (e.g. Skansen Zoo)
+     * Historic landmarks, castles & palaces (e.g. Kungliga Slottet, Stockholms Stadshus)
+     * Parks, gardens & nature walks (e.g. Rosendals Trädgård)
+     * Viewpoints & scenic cliff walks (e.g. Monteliusvägen)
+     * Cafes, bakeries, & fika places (e.g. Café Pascal, Vete-Katten)
+     * Restaurants & eateries (e.g. Restaurang Pelikan, Meatballs for the People)
+     * Hotels & accommodations (e.g. Grand Hôtel, Hobo Hotel)
+   - Use 'attraction' ONLY for temporary events, scheduled activities, seasonal festivals, pop-up markets, live musical concerts, or temporary exhibitions.
+   - When a user asks for museums, zoos, palaces, landmarks, parks, viewpoints, cafes, or permanent attractions -> ALWAYS query 'destination'.
+
+2. GEOGRAPHICAL PROXIMITY & "NEARBY" RULES:
+   - When a user asks for places "nearby", "close to", "near", or "within walking distance" without an explicit distance number:
+     * ALWAYS automatically default the distance to 500 meters (500 in ST_DWithin).
+   - If the user specifies an explicit distance (e.g. "within 1 km", "within 800m", "under 300 meters"):
+     * Convert to meters (1 km = 1000, 800m = 800, 300m = 300) and use that distance in ST_DWithin.
+   - Nearby a Named Landmark:
+     * Join destination with location and subquery the reference landmark's coordinates using ST_DWithin(l.location, (SELECT l2.location FROM destination d2 JOIN location l2 ON d2.location_id = l2.location_id WHERE LOWER(d2.name) LIKE '%landmark%' LIMIT 1), 500).
+   - Nearby Coordinates:
+     * If latitude/longitude are given: ST_DWithin(l.location, ST_SetSRID(ST_MakePoint(lng, lat), 4326)::geography, 500).
+   - Nearby without specific anchor:
+     * If user asks "what is nearby?" or "nearby places" with no reference anchor, default to Central Stockholm (T-Centralen coordinates: 59.3326 N, 18.0649 E):
+       ST_DWithin(l.location, ST_SetSRID(ST_MakePoint(18.0649, 59.3326), 4326)::geography, 500).
+   - Distance Ordering:
+     * Whenever proximity is requested, order by closest distance first: ORDER BY ST_Distance(l.location, <reference_point>) ASC.
+
+3. TEXT SEARCH & SAFETY:
+   - Always use case-insensitive searches: LOWER(COALESCE(column, '')) LIKE '%keyword%'.
+   - Search across both 'name' and 'label' or 'description' when user mentions a topic or category.
+   - Use SELECT DISTINCT when joins could produce duplicate destination or attraction rows.
+   - Default to LIMIT 10 unless specified otherwise.
+   - ONLY SELECT queries are permitted. Never output data-modifying statements.
 
 FEW-SHOT EXAMPLES:
-User: "Find museums in Gamla Stan reachable by metro"
-SQL: SELECT a.id, a.name, a.category, a.district FROM attractions a JOIN transit_stops s ON a.nearest_stop_id = s.id WHERE LOWER(a.category) LIKE '%museum%' AND LOWER(a.district) LIKE '%gamla stan%' AND LOWER(s.modes) LIKE '%metro%' LIMIT 10;
 
-User: "Scenic viewpoints with short walk from reliable transit"
-SQL: SELECT a.id, a.name, a.category, a.district FROM attractions a JOIN transit_stops s ON a.nearest_stop_id = s.id WHERE LOWER(a.category) LIKE '%viewpoint%' AND a.walking_time_to_stop_minutes <= 10 AND s.on_time_rate_percent >= 90 ORDER BY s.on_time_rate_percent DESC LIMIT 10;
+User: "Find museums in Stockholm"
+SQL:
+SELECT d.destination_id, d.name, d.label, d.description, d.location_id
+FROM destination d
+WHERE LOWER(COALESCE(d.label, '')) LIKE '%museum%'
+   OR LOWER(COALESCE(d.name, '')) LIKE '%museum%'
+LIMIT 10;
 
-User: "Where to get fika near Södermalm"
-SQL: SELECT a.id, a.name, a.category, a.district FROM attractions a WHERE LOWER(a.category) LIKE '%fika%' AND LOWER(a.district) LIKE '%södermalm%' LIMIT 10;
+User: "Find zoos and open-air heritage grounds"
+SQL:
+SELECT d.destination_id, d.name, d.label, d.description, d.location_id
+FROM destination d
+WHERE LOWER(COALESCE(d.label, '')) LIKE '%zoo%'
+   OR LOWER(COALESCE(d.name, '')) LIKE '%zoo%'
+   OR LOWER(COALESCE(d.description, '')) LIKE '%open-air%'
+LIMIT 10;
 
-User: "Attractions within 1 km of a stop served by reliable routes"
-SQL: SELECT a.id, a.name, a.category, a.district FROM attractions a JOIN transit_stops s ON a.nearest_stop_id = s.id WHERE a.walking_time_to_stop_minutes <= 10 AND s.on_time_rate_percent >= 92 ORDER BY s.on_time_rate_percent DESC LIMIT 10;`;
+User: "Find cafes nearby the Royal Palace"
+SQL:
+SELECT DISTINCT d.destination_id, d.name, d.label, d.description, d.location_id
+FROM destination d
+JOIN location l ON d.location_id = l.location_id
+WHERE (LOWER(COALESCE(d.label, '')) LIKE '%fika%'
+    OR LOWER(COALESCE(d.label, '')) LIKE '%cafe%'
+    OR LOWER(COALESCE(d.name, '')) LIKE '%cafe%')
+  AND ST_DWithin(
+    l.location,
+    (SELECT l_ref.location FROM destination d_ref JOIN location l_ref ON d_ref.location_id = l_ref.location_id WHERE LOWER(d_ref.name) LIKE '%royal palace%' OR LOWER(d_ref.name) LIKE '%slott%' LIMIT 1),
+    500
+  )
+ORDER BY ST_Distance(
+    l.location,
+    (SELECT l_ref.location FROM destination d_ref JOIN location l_ref ON d_ref.location_id = l_ref.location_id WHERE LOWER(d_ref.name) LIKE '%royal palace%' OR LOWER(d_ref.name) LIKE '%slott%' LIMIT 1)
+  ) ASC
+LIMIT 10;
 
+User: "Find places to visit nearby 59.3280, 18.0914"
+SQL:
+SELECT DISTINCT d.destination_id, d.name, d.label, d.description, d.location_id
+FROM destination d
+JOIN location l ON d.location_id = l.location_id
+WHERE ST_DWithin(
+    l.location,
+    ST_SetSRID(ST_MakePoint(18.0914, 59.3280), 4326)::geography,
+    500
+  )
+ORDER BY ST_Distance(
+    l.location,
+    ST_SetSRID(ST_MakePoint(18.0914, 59.3280), 4326)::geography
+  ) ASC
+LIMIT 10;
+
+User: "Find parks within 1 km of Skansen"
+SQL:
+SELECT DISTINCT d.destination_id, d.name, d.label, d.description, d.location_id
+FROM destination d
+JOIN location l ON d.location_id = l.location_id
+WHERE (LOWER(COALESCE(d.label, '')) LIKE '%park%' OR LOWER(COALESCE(d.description, '')) LIKE '%garden%')
+  AND ST_DWithin(
+    l.location,
+    (SELECT l_ref.location FROM destination d_ref JOIN location l_ref ON d_ref.location_id = l_ref.location_id WHERE LOWER(d_ref.name) LIKE '%skansen%' LIMIT 1),
+    1000
+  )
+ORDER BY ST_Distance(
+    l.location,
+    (SELECT l_ref.location FROM destination d_ref JOIN location l_ref ON d_ref.location_id = l_ref.location_id WHERE LOWER(d_ref.name) LIKE '%skansen%' LIMIT 1)
+  ) ASC
+LIMIT 10;
+
+User: "Find temporary festivals and exhibitions happening in Stockholm"
+SQL:
+SELECT a.attraction_id, a.attraction_name, a.attraction_type, a.location_id, a.attraction_url
+FROM attraction a
+WHERE LOWER(COALESCE(a.attraction_type, '')) LIKE '%festival%'
+   OR LOWER(COALESCE(a.attraction_type, '')) LIKE '%exhibition%'
+   OR LOWER(COALESCE(a.attraction_name, '')) LIKE '%festival%'
+LIMIT 10;
+
+User: "Find destinations where the recorded weather is sunny"
+SQL:
+SELECT DISTINCT d.destination_id, d.name, d.label, d.location_id, w.temperature, w.weather_type
+FROM destination d
+JOIN weather w ON w.location_id = d.location_id
+WHERE LOWER(COALESCE(w.weather_type, '')) LIKE '%sunny%'
+LIMIT 10;`;
   // Helper to call Ollama
   const sendOllamaRequest = async (endpoint: string) => {
     const controller = new AbortController();
